@@ -4,7 +4,7 @@ import pandas as pd
 import folium
 from IPython.display import display
 from math import radians, cos, sin, asin, sqrt
-
+import folium.plugins as plugins
 
 # checks if a point is in a certain area
 # Input: 
@@ -126,7 +126,6 @@ def mark_map(map,data, the_icon ='lion',color='blue'):
         date2 = data['date'].iloc[i]
         name = data['name'].iloc[i]        
         folium.Marker([lat, lon], popup = [name, date2], icon=folium.Icon(color=color,icon=the_icon,prefix='fa')).add_to(map)
-    
     return map
 
 
@@ -164,5 +163,62 @@ def get_cross_points(all_hurricanes,animals,max_dist):
                         'distance_from_event_in_km' : distance_from_event}
                 
                     good_pnts = good_pnts.append(row, ignore_index= True)
-    return good_pnts       
+    return good_pnts   
+
+
+import folium.plugins as plugins
+
+def mark_layered_map(map,h_name,data,the_icon ='lion',color='blue'):
+    group = folium.FeatureGroup(name = h_name)
+    mean_lat = data['latitude'].mean()
+    mean_lon = data['longitude'].mean()
+    for i in range(data.shape[0]):
+        lat = data['latitude'].iloc[i]
+        lon = data['longitude'].iloc[i]
+        date2 = data['date'].iloc[i]
+        name = data['name'].iloc[i]        
+        folium.Marker([lat, lon], popup = [name, date2], icon=folium.Icon(color=color,icon=the_icon,prefix='fa')).add_to(group)
+    group.add_to(map) 
+    return map
+
+def mark_before_during_after(map,name,before,during,after):
+    if not before.empty:
+        group_before = folium.FeatureGroup(name = f"Indidvidual {name} Trajectory before event").add_to(map)
+        # line_before = folium.PolyLine(locations=list(zip(before['latitude'],before['longitude'])),color='blue').add_to(group_before)
+        mark_map(group_before,before,'fish','blue')
+        hm_group_before = folium.FeatureGroup(name = f"Indidvidual {name} HeatMap before event").add_to(map)
+        heatmap_before = plugins.HeatMap(data=before[['latitude', 'longitude']], radius=15).add_to(hm_group_before)
+
+    if not during.empty:
+        group_during = folium.FeatureGroup(name = f"Indidvidual {name} Trajectory during event").add_to(map)
+        # line_during = folium.PolyLine(locations=list(zip(during['latitude'],during['longitude'])),color='green').add_to(group_during)
+        mark_map(group_during,during,'fish','green')
+        hm_group_during = folium.FeatureGroup(name = f"Indidvidual {name} HeatMap during event").add_to(map)
+        heatmap_during = plugins.HeatMap(data=during[['latitude', 'longitude']], radius=15).add_to(hm_group_during)
+
+    if not after.empty:    
+        group_after = folium.FeatureGroup(name =  f"Indidvidual {name} Trajectory after event").add_to(map)
+        # line_after = folium.PolyLine(locations=list(zip(after['latitude'],after['longitude'])),color='red').add_to(group_after)
+        mark_map(group_after,after,'fish','red')
+        hm_group_after = folium.FeatureGroup(name =  f"Indidvidual {name} HeatMap after event").add_to(map)
+        heatmap_after = plugins.HeatMap(data=after[['latitude', 'longitude']], radius=15).add_to(hm_group_after)
+    
+    add_sea_depth(map) # Adds an image of the depth of the see based on 4 coordinates
+    folium.map.LayerControl(position='topright', collapsed=False).add_to(map)
+
+    return map
+
+def add_sea_depth(map):
+    sea_depth_img = 'C:/Users/Ben/Documents/GitHub/Animal-Motion-for-predictions/data/Images/depth.png'
+    map_group = folium.FeatureGroup(name='Sea Depth Golf of Mexico').add_to(map)
+    image_overlay = folium.raster_layers.ImageOverlay(
+        image= sea_depth_img,
+        bounds=[[30.8936, -100.5469], [16.3037, -71.3672]],
+        opacity=0.5)
+    image_overlay.add_to(map_group)
+    # layer_control = folium.LayerControl().add_to(map)
+    map
+
+
+
 

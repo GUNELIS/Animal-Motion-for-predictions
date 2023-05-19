@@ -1,4 +1,9 @@
 import pandas as pd
+import folium.plugins as plugins
+import rasterio
+from rasterio.transform import Affine
+
+
 
 def sperm_whale_preprocess(path):
     sperm_whales = pd.read_csv(path)
@@ -21,7 +26,9 @@ def sperm_whale_preprocess(path):
 
     sperm_whales = sperm_whales.rename(columns={'timestamp': 'date'})
     sperm_whales = sperm_whales.rename(columns={'individual-local-identifier': 'name'})
-    sperm_whales['date'] = pd.to_datetime(sperm_whales['date'])
+    sperm_whales['date'] = pd.to_datetime(sperm_whales['date']) 
+    sperm_whales['depth'] = sperm_whales.apply(lambda row: get_sea_depth(row['latitude'], row['longitude']),axis=1)
+    sperm_whales['species'] = 'Physeter Macrocephalus'
 
     return sperm_whales
 
@@ -41,6 +48,8 @@ def blue_whale_preprocess(path):
     blue_whales = blue_whales.rename(columns={'timestamp': 'date'})
     blue_whales = blue_whales.rename(columns={'individual-local-identifier': 'name'})
     blue_whales['date'] = pd.to_datetime(blue_whales['date'])
+    blue_whales['depth'] = blue_whales.apply(lambda row: get_sea_depth(row['latitude'], row['longitude']),axis=1)
+    blue_whales['species'] = 'Balaenoptera Musculus'
 
     return blue_whales
 
@@ -233,6 +242,9 @@ def process_hurricane_txt(file_path):
 
 """
 This function proccesses Tiger shark data from the DataONE website.
+It also adds the new columns:
+year - the year of observation
+depth - the water depth in meters where the animal was swimming
 
 Data Acknowledgements: 
 
@@ -250,7 +262,86 @@ def preprocess_tiger_sharks(path):
                                                   'lat': 'latitude',
                                                   'id':'name'})
     tiger_sharks['year'] = tiger_sharks['date'].dt.year
+    tiger_sharks['depth'] = tiger_sharks.apply(lambda row: get_sea_depth(row['latitude'], row['longitude']),axis=1)
+
     return tiger_sharks
+
+def preprocess_whale_sharks(path):
+    whale_sharks = pd.read_csv(path)
+    for i, row in whale_sharks.iterrows():
+            whale_sharks.at[i, "longitude"] = float(row["longitude"])
+            whale_sharks.at[i, "latitude"] = float(row["latitude"])
+
+    whale_sharks = whale_sharks.rename(columns={'timestamp': 'date'})
+    whale_sharks = whale_sharks.rename(columns={'id_tag': 'name'})
+    whale_sharks['date'] = pd.to_datetime(whale_sharks['date'])
+    whale_sharks = whale_sharks.drop('month' , axis=1)
+    whale_sharks['depth'] = whale_sharks.apply(lambda row: get_sea_depth(row['latitude'], row['longitude']),axis=1)
+    whale_sharks['species'] = 'Rhincodon Typus'
+
+    return whale_sharks
+
+"""
+This calculates the depth of the water given <lat, lon> values.
+This done using the sea_depth.tiff file.
+Extracted from:
+NOAA https://www.ncei.noaa.gov/maps/grid-extract/
+"""
+def get_sea_depth(latitude, longitude):
+    file_path = 'C:/Users/Ben/Documents/GitHub/Animal-Motion-for-predictions/data/sea_depth.tiff'
+    try:
+        with rasterio.open(file_path) as dataset:
+            row, col = dataset.index(longitude, latitude)
+            sea_depth = dataset.read(1, window=((row, row+1), (col, col+1)))
+            return sea_depth[0][0]
+    
+    except (rasterio.errors.RasterioIOError, IndexError) as e:
+        print(f"Error: {e}")
+        return None
+    
+
+def make_cp_dict(g_p, a_data, full_hurricane_1992):
+    grr = g_p.groupby('event_name')
+    Crossed_points = {}
+    for event_na in g_p['event_name'].unique():
+        event_data = full_hurricane_1992.loc[full_hurricane_1992['name']== event_na]
+        curernt_event_group = grr.get_group(event_na)
+        event_start_date = event_data['date'].min()
+        event_end_date = event_data['date'].max()
+        
+        Crossed_points[event_na] = {
+                                    'event name': event_na,
+                                    'start date': event_start_date,
+                                    'end date': event_end_date,
+                                    'event data': event_data,
+                                    'animals':  {}
+                                    }
+            
+        for animal_na in curernt_event_group['name'].unique():
+            print(animal_na)
+            animal_data = a_data[a_data['name']==animal_na]
+            animal_data = animal_data.sort_values('date')
+            animal_before = animal_data.loc[(animal_data['date'] < event_start_date) & (animal_data['date'] >= event_start_date - pd.Timedelta(days=7))]
+            animal_during = animal_data.loc[(animal_data['date'] >= event_start_date) & (animal_data['date'] <= event_end_date)]
+            animal_after = animal_data.loc[(animal_data['date'] > event_end_date) & (animal_data['date']< event_end_date + pd.Timedelta(days=4))]
+            animal_dict = {
+                            'animal name': animal_na,
+                            'animal data': animal_data,
+                            'before event': animal_before,
+                            'during event': animal_during,
+                            'after event': animal_after,
+                        }
+            Crossed_points[event_na]['animals'][animal_na] = animal_dict
+            
+    return Crossed_points
+
+
+    
+        
+
+        
+
+    
 
 
 
