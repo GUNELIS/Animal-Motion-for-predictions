@@ -17,12 +17,9 @@ def preprocess_sperm_whale(path):
     sperm_whales =temp_df.iloc[:,[0,1,2,3,4,12]].copy() # refine the csv and get only the desired columns from og dataset
     # sperm_whales.to_csv('Sperm_whales_refined.csv', index=False)
 
-    # A bit more of data preprocessing, making all coordinate values numeric
     for i, row in sperm_whales.iterrows():
         sperm_whales.at[i, "longitude"] = float(row["longitude"])
         sperm_whales.at[i, "latitude"] = float(row["latitude"])
-
-    # More data preprocessing, getting the timestamp column ready
 
     sperm_whales = sperm_whales.rename(columns={'timestamp': 'date'})
     sperm_whales = sperm_whales.rename(columns={'individual-local-identifier': 'name'})
@@ -32,22 +29,21 @@ def preprocess_sperm_whale(path):
     sperm_whales['species'] = 'Physeter Macrocephalus'
     sperm_whales = sperm_whales.drop('event-id',axis=1)
     sperm_whales = sperm_whales.drop('visible',axis=1)
-
-
     return sperm_whales
 
+def preprocess_all_animals(data):
+    data['date'] = pd.to_datetime(data['date'])
+    return data
 
 def preprocess_blue_whale(path):
     blue_whales = pd.read_csv(path)
     blue_whales =blue_whales.iloc[:,[0,1,2,3,4,18]].copy() # refine the csv and get only the desired columns from og dataset
     blue_whales = blue_whales.rename(columns={'location-long': 'longitude', 'location-lat': 'latitude', 'tag-local-identifier': 'name'})
 
-    # A bit more of data preprocessing, making all coordinate values numeric
     for i, row in blue_whales.iterrows():
         blue_whales.at[i, "longitude"] = float(row["longitude"])
         blue_whales.at[i, "latitude"] = float(row["latitude"])
 
-    # More data preprocessing, getting the timestamp column ready
 
     blue_whales = blue_whales.rename(columns={'timestamp': 'date'})
     blue_whales = blue_whales.rename(columns={'individual-local-identifier': 'name'})
@@ -147,7 +143,6 @@ def preProcess_weather_data(data):
     lat_column = data['latitude']
     lon_column = data['longitude']
 
-    # A loop that checks the latitude
     for i in range(len(lat_column)):
         value = lat_column.iloc[i]
         if "N" in value:
@@ -155,7 +150,6 @@ def preProcess_weather_data(data):
         elif "S" in value:
             lat = -1 * float(value.strip("S"))
         lat_column.iloc[i] = lat
-    # A loop that checks the longitude
     for i in range(len(lon_column)):
         value = lon_column.iloc[i]
         if "E" in value:
@@ -165,9 +159,6 @@ def preProcess_weather_data(data):
         lon_column.iloc[i] = lon
     data['latitude'] = lat_column
     data['longitude'] = lon_column    
-    # cols = list(data.columns)
-    # cols.append(cols.pop(cols.index('name')))
-    # data = data[cols]
     data['year'] = data['date'].dt.year
 
     return data
@@ -182,7 +173,6 @@ def process_hurricane_txt(file_path):
     """
     hurricane_columns = ['date', 'Hour UTC', 'RI', 'HU', 'latitude', 'longitude', 'max_wind', 'min_pressure', 'ne34', 'se34', 'sw34', 'nw34', 'ne50', 'se50', 'sw50', 'nw50', 'ne64', 'se64', 'sw64', 'nw64', 'name']
 
-    # Read the text file line by line and store the names in a dict of names for easy access later
     hurricane_info = []
     current_hurricane = None
     names_dict = {}  # Keep track of hurricane names and suffixes
@@ -226,7 +216,7 @@ Extracted from:
 NOAA https://www.ncei.noaa.gov/maps/grid-extract/
 """
 def get_sea_depth(latitude, longitude):
-    file_path = 'C:/Users/Ben/Documents/GitHub/Animal-Motion-for-predictions/data/sea_depth.tiff'
+    file_path = 'C:/Users/Ben/Documents/GitHub/Animal-Motion-for-predictions/data/Sea_Depth_tiffs/sea_depth.tiff'
     try:
         with rasterio.open(file_path) as dataset:
             row, col = dataset.index(longitude, latitude)
@@ -234,10 +224,12 @@ def get_sea_depth(latitude, longitude):
             return sea_depth[0][0]
     
     except (rasterio.errors.RasterioIOError, IndexError) as e:
-        print(f"Error: {e}")
+        # print(f"Error: {e}")
         return None
     
-
+"""
+makes a dictionary based in the g_p datasets which combines both weather and animal data. 
+"""
 def make_cp_dict(g_p, a_data, full_hurricane_1992):
     grr = g_p.groupby('event_name')
     Crossed_points = {}
@@ -260,7 +252,7 @@ def make_cp_dict(g_p, a_data, full_hurricane_1992):
             animal_data = animal_data.sort_values('date')
             animal_before = animal_data.loc[(animal_data['date'] < event_start_date) & (animal_data['date'] >= event_start_date - pd.Timedelta(days=7))]
             animal_during = animal_data.loc[(animal_data['date'] >= event_start_date) & (animal_data['date'] <= event_end_date)]
-            animal_after = animal_data.loc[(animal_data['date'] > event_end_date) & (animal_data['date']< event_end_date + pd.Timedelta(days=4))]
+            animal_after = animal_data.loc[(animal_data['date'] > event_end_date) & (animal_data['date']< event_end_date + pd.Timedelta(days=7))]
             animal_dict = {
                             'animal name': animal_na,
                             'animal data': animal_data,
@@ -272,6 +264,10 @@ def make_cp_dict(g_p, a_data, full_hurricane_1992):
             
     return Crossed_points
 
+"""
+Functions to preprocess for classifiers.
+
+"""
 def preprocess_4_LR(path):
 
     t = pd.read_csv(path)
@@ -289,6 +285,8 @@ def preprocess_4_LR(path):
     t['Humidity (%)'] = t['Humidity (%)'].astype(float)
     
     return t
+
+
 
 
 

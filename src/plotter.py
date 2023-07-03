@@ -1,4 +1,3 @@
-import Point
 import datetime
 import pandas as pd
 import folium
@@ -29,7 +28,10 @@ freq_visited_coordinates = [
     (28.06455, -94.51558),
     (28.36448, -91.68008)
 ]
+"""
+Standard folium map marking given the chosen icon , color and locations
 
+"""
 def mark_map(map,data, the_icon ='lion',color='blue'):
     mean_lat = data['latitude'].mean()
     mean_lon = data['longitude'].mean()
@@ -42,6 +44,43 @@ def mark_map(map,data, the_icon ='lion',color='blue'):
     MousePosition().add_to(map)
     return map
 
+"""
+Marking the points but unpacked from the dictionary.
+
+"""
+def mark_dict_map(map,dict):
+    for hurricane_name in dict.keys():
+        group = folium.FeatureGroup(name = hurricane_name).add_to(map)
+        event_data = dict[hurricane_name]['event data']
+        for i in range(event_data.shape[0]):
+                lat = event_data['latitude'].iloc[i]
+                lon = event_data['longitude'].iloc[i]
+                date2 = event_data['date'].iloc[i]
+                folium.Marker([lat, lon], popup = [hurricane_name, date2], icon=folium.Icon(color='pink',icon='tornado',prefix='fa')).add_to(group)
+        for animal_name in dict[hurricane_name]['animals'].keys():
+            animal_data = dict[hurricane_name]['animals'][animal_name]['animal data']
+            # group_before = folium.FeatureGroup(name = f"{animal_name} before event").add_to(group)
+            # line_before = folium.PolyLine(locations=list(zip(before['latitude'],before['longitude'])),color='blue').add_to(group_before)
+            before = dict[hurricane_name]['animals'][animal_name]['before event']
+            during = dict[hurricane_name]['animals'][animal_name]['during event']
+            after = dict[hurricane_name]['animals'][animal_name]['after event']
+
+            # mark_map(group_before,before,'fish','blue').add_to(group_before)
+            for i in range(animal_data.shape[0]):
+                lat = animal_data['latitude'].iloc[i]
+                lon = animal_data['longitude'].iloc[i]
+                date2 = animal_data['date'].iloc[i]
+                if  is_in(before['date'],date2):
+                    folium.Marker([lat, lon], popup = [animal_name, date2], icon=folium.Icon(color='blue',icon='fish',prefix='fa')).add_to(group)
+                if is_in(during['date'],date2):
+                    folium.Marker([lat, lon], popup = [animal_name, date2], icon=folium.Icon(color='green',icon='fish',prefix='fa')).add_to(group)
+                if is_in(after['date'],date2):
+                    folium.Marker([lat, lon], popup = [animal_name, date2], icon=folium.Icon(color='red',icon='fish',prefix='fa')).add_to(group)
+                else:
+                    folium.Marker([lat, lon], popup = [animal_name, date2], icon=folium.Icon(color='orange',icon='dog',prefix='fa')).add_to(group)
+
+            # folium.Marker([lat, lon], popup = [name, date2], icon=folium.Icon(color=color,icon=the_icon,prefix='fa')).add_to(group)
+    return map
 
 def mark_layered_map(map,h_name,data,the_icon ='lion',color='blue'):
     group = folium.FeatureGroup(name = h_name)
@@ -59,6 +98,10 @@ def mark_layered_map(map,h_name,data,the_icon ='lion',color='blue'):
 
     return map
 
+
+"""
+Automated way to show the before during after of a certain individual corresponding to a certain hurricane
+"""
 def mark_before_during_after(map,name,before,during,after):
     if not before.empty:
         group_before = folium.FeatureGroup(name = f"Indidvidual {name} Trajectory before event").add_to(map)
@@ -82,12 +125,13 @@ def mark_before_during_after(map,name,before,during,after):
         heatmap_after = plugins.HeatMap(data=after[['latitude', 'longitude']], radius=15).add_to(hm_group_after)
     
     add_sea_depth(map) # Adds an image of the depth of the see based on 4 coordinates
-    folium.map.LayerControl(position='topright', collapsed=False).add_to(map)
-    MousePosition().add_to(map)
 
     return map
 
+"""
+Overlays the  sea depth raster on the original map.
 
+"""
 def add_sea_depth(map):
     sea_depth_img = 'C:/Users/Ben/Documents/GitHub/Animal-Motion-for-predictions/data/Images/depth.png'
     map_group = folium.FeatureGroup(name='Sea Depth Golf of Mexico').add_to(map)
@@ -97,6 +141,9 @@ def add_sea_depth(map):
         opacity=0.5)
     image_overlay.add_to(map_group)
 
+"""
+Creates a heat map given the map and animal location data
+"""
 def make_heatMap(map, animals):
     species = animals['species'].iloc[0]
     hm_group = folium.FeatureGroup(name = f"Heat Map of {species}").add_to(map)
@@ -104,7 +151,9 @@ def make_heatMap(map, animals):
     MousePosition().add_to(map)
     return map
 
-
+"""
+Creates a polyline representation of shark trajectories
+"""
 def make_polylines(map, animals):
     i = len(color_list)-1
     for shark_name, group in animals.groupby('name'):
@@ -117,6 +166,9 @@ def make_polylines(map, animals):
     MousePosition().add_to(map)
     return map
 
+"""
+Marks multiple values in one map
+"""
 def mark_map_multiple(map,animal, the_icon ='lion'):
     color_index = len(color_list)-1
     for shark_name, group in animal.groupby('name'):
@@ -136,7 +188,9 @@ def mark_map_multiple(map,animal, the_icon ='lion'):
     MousePosition().add_to(map)
     return map
 
-
+"""
+Plotting the model performance in several subplots
+"""
 def plot_model_Evaluation(model,y_test,y_pred,X_test,X):
     fig, axs = plt.subplots(2, 2, figsize=(10, 8))
 
@@ -181,3 +235,8 @@ def plot_model_Evaluation(model,y_test,y_pred,X_test,X):
     plt.show()
 
 
+def is_in(dates, date):
+    for d in dates:
+        if d.date() == date.date():
+            return True
+    return False
